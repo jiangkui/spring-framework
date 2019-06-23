@@ -117,11 +117,26 @@ public final class SpringFactoriesLoader {
 	 * @throws IllegalArgumentException if an error occurs while loading factory names
 	 * @see #loadFactories
 	 */
+
+	/**
+	 * 在 META-INF/spring.factories 中查找 factoryType 相关配置
+	 *
+	 * @param factoryType FactoryClass
+	 * @param classLoader 由 ClassLoader 进行 spring.factories 查找
+	 * @return spring.factories 配置的 className
+	 *
+	 */
 	public static List<String> loadFactoryNames(Class<?> factoryType, @Nullable ClassLoader classLoader) {
 		String factoryTypeName = factoryType.getName();
 		return loadSpringFactories(classLoader).getOrDefault(factoryTypeName, Collections.emptyList());
 	}
 
+	/**
+	 * 加载 META-INF/spring.factories 文件，并处理成方便使用的形式（见下一图）。
+	 *
+	 * @param classLoader 由 ClassLoader 进行加载
+	 * @return ClassLoader 加载范围内，所有 Jar 包的 META-INF/spring.factories 文件
+	 */
 	private static Map<String, List<String>> loadSpringFactories(@Nullable ClassLoader classLoader) {
 		MultiValueMap<String, String> result = cache.get(classLoader);
 		if (result != null) {
@@ -129,13 +144,18 @@ public final class SpringFactoriesLoader {
 		}
 
 		try {
+			// 1.查找所有的：META-INF/spring.factories 文件
 			Enumeration<URL> urls = (classLoader != null ?
 					classLoader.getResources(FACTORIES_RESOURCE_LOCATION) :
 					ClassLoader.getSystemResources(FACTORIES_RESOURCE_LOCATION));
 			result = new LinkedMultiValueMap<>();
 			while (urls.hasMoreElements()) {
 				URL url = urls.nextElement();
+
+				// 2.创建 UrlResource
 				UrlResource resource = new UrlResource(url);
+
+				// 3.简单处理，方便使用（见下一图）
 				Properties properties = PropertiesLoaderUtils.loadProperties(resource);
 				for (Map.Entry<?, ?> entry : properties.entrySet()) {
 					String factoryTypeName = ((String) entry.getKey()).trim();
@@ -144,6 +164,7 @@ public final class SpringFactoriesLoader {
 					}
 				}
 			}
+			// 4.缓存 META-INF/spring.factories 文件
 			cache.put(classLoader, result);
 			return result;
 		}
