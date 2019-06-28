@@ -106,6 +106,10 @@ public class AnnotationAwareOrderComparator extends OrderComparator {
 	 * @param list the List to sort
 	 * @see java.util.List#sort(java.util.Comparator)
 	 */
+
+	/**
+	 * 排序：实现 Ordered 接口的 instance，按 order 值升序排列（1，2，3...），没实现 Ordered 接口的放到最后，并且不进行排序（顺序同 spring.factories 的顺序）。
+	 */
 	public static void sort(List<?> list) {
 		if (list.size() > 1) {
 			list.sort(INSTANCE);

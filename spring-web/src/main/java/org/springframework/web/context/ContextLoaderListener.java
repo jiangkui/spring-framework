@@ -97,6 +97,7 @@ public class ContextLoaderListener extends ContextLoader implements ServletConte
 
 	/**
 	 * Initialize the root web application context.
+	 * spring-web 容器从这里初始化
 	 */
 	@Override
 	public void contextInitialized(ServletContextEvent event) {

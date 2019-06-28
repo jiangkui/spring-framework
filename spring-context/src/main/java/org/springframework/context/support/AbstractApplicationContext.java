@@ -511,23 +511,51 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		return this.applicationListeners;
 	}
 
+	/**
+	 * 刷新容器
+	 *
+	 * 介绍：
+	 * 		Spring 最核心的流程，无论是 SpringBoot、SpringMVC、还是由 ContextLoaderListener 加载的 WebWebApplicationContext，最终都会执行这段代码。简单列举下这段代码做的事情（只写了核心事项）：
+	 *
+	 * 		- 1.查找并加载需要 Spring 管理的 Bean
+	 * 			- 位置：Bean 会在各种位置进行定义，如：XML文件、注解、groovy脚本等等。
+	 * 			- 注意：SpringBoot 自己加载了部分Bean，即在：load source时加载了一部分，另一部分，要在 refresh 时进行加载（由 BeanDefinitionRegistryPostProcessor 接口实现这部分加载）
+	 * 		- 2.实例化 Bean
+	 * 			- 上面步骤是把：文件中的Bean 转成 BeanDefinition，并存到 Map (比如：DefaultListableBeanFactory) 中，方便查找
+	 * 			- 而实例化是把：BeanDefinition 转成 Object，共开发人员使用。（也就是所谓的 getBean() 方法干的事情，动态代理等事项，就是在这个流程实现的）
+	 *
+	 * 约定：
+	 * 		为了描述方便，采用以下三个名词分别代表不同类型的 Spring 容器：
+	 * 		- spring-boot：
+	 * 			-
+	 * 		- spring-webmvc：
+	 * 			- 原因：org.springframework.web.servlet.DispatcherServlet 属于 spring-webmvc
+	 * 		- spring-web：
+	 * 			- 命名：把由 ContextLoaderListener 加载的 WebWebApplicationContext（也就是没有SpringBoot时，我们最常用的 Spring WebApplication 容器）称之为 "spring-web"
+	 * 			- 原因：org.springframework.web.context.ContextLoaderListener 属于 spring-web 包
+	 */
 	@Override
 	public void refresh() throws BeansException, IllegalStateException {
 		synchronized (this.startupShutdownMonitor) {
-			// Prepare this context for refreshing.
+			// 原注释：Prepare this context for refreshing.（源码注释保留，方便读者理解，下面同理）
+			// 准备工作：
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
+			// 刷新 BeanFactory。功能：查找要 Spring 管理的 Bean（SpringCore、SpringMVC 使用这部分功能，SpringBoot不用，子类实现方法不同）
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
+			// 准备 BeanFactory。功能：
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+				//
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
+				//
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
