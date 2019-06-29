@@ -144,13 +144,36 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 	 * @throws ServletException if bean properties are invalid (or required
 	 * properties are missing), or if subclass initialization fails.
 	 */
+
+	/**
+	 * - 读取配置参数并赋值：
+	 * 		- 用 web.xml 中配置的 [init-param] 参数，设置 DispatcherServlet 属性
+	 * - 初始化 spring-webmvc 容器
+	 * 		- 调用 initServletBean()，来初始化 spring-webmvc 容器
+	 */
 	@Override
 	public final void init() throws ServletException {
 
-		// Set bean properties from init parameters.
+		/*
+		 	通过 <init-param>，设置 Bean 属性，<init-param> 就是 web.xml 中 DispatcherServlet 的属性，如下：
+			<servlet>
+				<servlet-name>spring</servlet-name>
+				<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+				<init-param>
+					<param-name>contextConfigLocation</param-name>
+					<param-value>classpath:dispatcher-servlet.xml</param-value>
+				</init-param>
+				<init-param>
+					<param-name>namespace</param-name>
+					<param-value>testNamespace</param-value>
+				</init-param>
+				<load-on-startup>1</load-on-startup>
+			</servlet>
+		 */
 		PropertyValues pvs = new ServletConfigPropertyValues(getServletConfig(), this.requiredProperties);
 		if (!pvs.isEmpty()) {
 			try {
+				// 通过 BeanWrapper 为 DispatcherServlet 设置上面的 <init-param> 属性，后续有单独文章介绍 BeanWrapper。spring-core 实例化 Bean 时也会用到 BeanWrapper
 				BeanWrapper bw = PropertyAccessorFactory.forBeanPropertyAccess(this);
 				ResourceLoader resourceLoader = new ServletContextResourceLoader(getServletContext());
 				bw.registerCustomEditor(Resource.class, new ResourceEditor(resourceLoader, getEnvironment()));
@@ -165,7 +188,7 @@ public abstract class HttpServletBean extends HttpServlet implements Environment
 			}
 		}
 
-		// Let subclasses do whatever initialization they like.
+		// 【扩展点】调用子类的初始化方法，spring-webmvc 在这里进行 mvc 容器的初始化。
 		initServletBean();
 	}
 

@@ -517,6 +517,10 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * Overridden method of {@link HttpServletBean}, invoked after any bean properties
 	 * have been set. Creates this servlet's WebApplicationContext.
 	 */
+
+	/**
+	 * 比较简单，就做了一件事情，初始化 web 容器，spring-mvc 相关内容，是通过监听容器 ContextRefreshedEvent 事件进行初始化的。
+	 */
 	@Override
 	protected final void initServletBean() throws ServletException {
 		getServletContext().log("Initializing Spring " + getClass().getSimpleName() + " '" + getServletName() + "'");
@@ -526,6 +530,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		long startTime = System.currentTimeMillis();
 
 		try {
+			// 初始化 web ApplicationContext context
 			this.webApplicationContext = initWebApplicationContext();
 			initFrameworkServlet();
 		}
@@ -556,7 +561,13 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @see #setContextClass
 	 * @see #setContextConfigLocation
 	 */
+
+
+	/**
+	 * 初始化 WebApplicationContext
+	 */
 	protected WebApplicationContext initWebApplicationContext() {
+		// 获取 spring-web context，并且会被设置成 spring-webmvc 的父容器，类似 ClassLoader 的双亲委派模型
 		WebApplicationContext rootContext =
 				WebApplicationContextUtils.getWebApplicationContext(getServletContext());
 		WebApplicationContext wac = null;
@@ -587,6 +598,8 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		}
 		if (wac == null) {
 			// No context instance is defined for this servlet -> create a local one
+
+			// 默认配置，会执行这段代码，创建一个 WebApplicationContext
 			wac = createWebApplicationContext(rootContext);
 		}
 
@@ -647,7 +660,12 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @return the WebApplicationContext for this servlet
 	 * @see org.springframework.web.context.support.XmlWebApplicationContext
 	 */
+
+	/**
+	 * 实例化&配置容器
+	 */
 	protected WebApplicationContext createWebApplicationContext(@Nullable ApplicationContext parent) {
+		// 默认容器Class为：XmlWebApplicationContext
 		Class<?> contextClass = getContextClass();
 		if (!ConfigurableWebApplicationContext.class.isAssignableFrom(contextClass)) {
 			throw new ApplicationContextException(
@@ -655,20 +673,27 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 					"': custom WebApplicationContext class [" + contextClass.getName() +
 					"] is not of type ConfigurableWebApplicationContext");
 		}
+		// 反射实例化容器，XmlWebApplicationContext 构造方法做的事情同 spring-web，这里就不详细分析了。
 		ConfigurableWebApplicationContext wac =
 				(ConfigurableWebApplicationContext) BeanUtils.instantiateClass(contextClass);
 
+		// 在设置 Environment
 		wac.setEnvironment(getEnvironment());
 		wac.setParent(parent);
+		// 处理我们的配置属性：classpath:dispatcher-servlet.xml
 		String configLocation = getContextConfigLocation();
 		if (configLocation != null) {
 			wac.setConfigLocation(configLocation);
 		}
+		// 配置和刷新 web 容器
 		configureAndRefreshWebApplicationContext(wac);
 
 		return wac;
 	}
 
+	/**
+	 * 配置&刷新容器，这里的玩法跟 spring-web 几乎是相同的，唯一多的一步是：监听了容器的 ContextRefresh 事件，会在这个事件中初始化 spring-webmvc 相关内容
+	 */
 	protected void configureAndRefreshWebApplicationContext(ConfigurableWebApplicationContext wac) {
 		if (ObjectUtils.identityToString(wac).equals(wac.getId())) {
 			// The application context id is still set to its original default value
@@ -686,17 +711,20 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 		wac.setServletContext(getServletContext());
 		wac.setServletConfig(getServletConfig());
 		wac.setNamespace(getNamespace());
+		// 添加监听器，监听 ContextRefreshListener 事件，即 web application refresh 完毕后，处理 spring-webmvc 相关框架。
 		wac.addApplicationListener(new SourceFilteringListener(wac, new ContextRefreshListener()));
 
 		// The wac environment's #initPropertySources will be called in any case when the context
 		// is refreshed; do it eagerly here to ensure servlet property sources are in place for
 		// use in any post-processing or initialization that occurs below prior to #refresh
+		// 初始化 Environment 中 servletContextInitParams、servletConfigInitParams 两个 PropertySource
 		ConfigurableEnvironment env = wac.getEnvironment();
 		if (env instanceof ConfigurableWebEnvironment) {
 			((ConfigurableWebEnvironment) env).initPropertySources(getServletContext(), getServletConfig());
 		}
 
 		postProcessWebApplicationContext(wac);
+		// 处理 context 自定义配置。其实就干了一件事：找 ApplicationContextInitializer 接口实现类，按优先级排序后，调用其 initialize() 方法
 		applyInitializers(wac);
 		wac.refresh();
 	}
@@ -745,6 +773,7 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 	 * @see ConfigurableApplicationContext#refresh()
 	 */
 	protected void applyInitializers(ConfigurableApplicationContext wac) {
+		// 从配置中查找：globalInitializerClasses，contextInitializerClasses 两个配置中是否有值
 		String globalClassNames = getServletContext().getInitParameter(ContextLoader.GLOBAL_INITIALIZER_CLASSES_PARAM);
 		if (globalClassNames != null) {
 			for (String className : StringUtils.tokenizeToStringArray(globalClassNames, INIT_PARAM_DELIMITERS)) {
@@ -758,8 +787,10 @@ public abstract class FrameworkServlet extends HttpServletBean implements Applic
 			}
 		}
 
+		// 实现 Ordered 接口的 instance，按 order 值升序排列（1，2，3...），没实现 Ordered 接口的放到最后，并且不进行排序（顺序同 spring.factories 的顺序）。
 		AnnotationAwareOrderComparator.sort(this.contextInitializers);
 		for (ApplicationContextInitializer<ConfigurableApplicationContext> initializer : this.contextInitializers) {
+			// 调用接口相关方法，从而自定义配置 context 容器
 			initializer.initialize(wac);
 		}
 	}
