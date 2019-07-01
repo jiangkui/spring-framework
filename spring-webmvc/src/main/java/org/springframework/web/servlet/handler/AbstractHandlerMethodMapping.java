@@ -201,17 +201,28 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	}
 
 	/**
-	 * Scan beans in the ApplicationContext, detect and register handler methods.
-	 * @see #getCandidateBeanNames()
-	 * @see #processCandidateBean
-	 * @see #handlerMethodsInitialized
+	 * 按代码步骤，初始化 HandlerMethods
 	 */
 	protected void initHandlerMethods() {
+		// 获取 ApplicationContext 中所有已经实例化 Bean 的 beanName，默认只有 spring-webmvc 的 beanName，没有 spring-web 容器的 beanName。
 		for (String beanName : getCandidateBeanNames()) {
 			if (!beanName.startsWith(SCOPED_TARGET_NAME_PREFIX)) {
+				/*
+				 	1. 实例：根据名字获取 Bean 实例
+				 	2. 筛选：寻找 @Controller 或 @RequestMapping 标注的Bean和方法
+				 	3. 封装：
+				 		 封装成以下两个对象：
+				 			- <T> mapping：
+				 				- 泛型，有多种实现，功能：存储映射规则，如：/hello 的路径映射
+				 			- HandlerMethod：
+				 				- 封装了与 mapping 相关的方法（包括：此方法的实例对象、方法参数、方法注解等信息），后续如果请求命中mapping，会用调用 HandlerMethod 得到 ModelAndView
+					4. 注册：
+						 把 mapping 与 HandlerMethod 注册到 Map[mapping, HandlerMethod] 中，方便使用
+				 */
 				processCandidateBean(beanName);
 			}
 		}
+		// TODO 搞到这里
 		handlerMethodsInitialized(getHandlerMethods());
 	}
 
@@ -249,7 +260,10 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				logger.trace("Could not resolve type for bean '" + beanName + "'", ex);
 			}
 		}
+
+		// bean 有 @Controller || @RequestMapping 注解
 		if (beanType != null && isHandler(beanType)) {
+			// 检测 HandlerMethod
 			detectHandlerMethods(beanName);
 		}
 	}
@@ -259,15 +273,25 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	 * @param handler either a bean name or an actual handler instance
 	 * @see #getMappingForMethod
 	 */
+
+	/**
+	 * 1. 查找 @RequestMapping 注释的 Method
+	 * 2. 封装成 HandlerMethod，并注册到Map中，
+	 */
 	protected void detectHandlerMethods(Object handler) {
 		Class<?> handlerType = (handler instanceof String ?
 				obtainApplicationContext().getType((String) handler) : handler.getClass());
 
 		if (handlerType != null) {
+			// 获取用户的Class：如果 Class 被 CGLB 代理了，则获取代理类的 SuperClass（用户的Class）
 			Class<?> userType = ClassUtils.getUserClass(handlerType);
+
+			// 获取被 @RequestMapping 标注的 Method & Mapping 映射（T）。其中 Mapping 映射是一个泛型，有多种实现，如：RequestMappingInfo
+			//		- RequestMappingInfo 内包含多重映射规则，如：patternsCondition(路径映射)，requestPath=/hello
 			Map<Method, T> methods = MethodIntrospector.selectMethods(userType,
 					(MethodIntrospector.MetadataLookup<T>) method -> {
 						try {
+							// 获取被 @RequestMapping 标注的 Method
 							return getMappingForMethod(method, userType);
 						}
 						catch (Throwable ex) {
@@ -280,6 +304,10 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 			}
 			methods.forEach((method, mapping) -> {
 				Method invocableMethod = AopUtils.selectInvocableMethod(method, userType);
+				// 封装：
+				// 		构造 HandlerMethod，这个对象封装了与 mapping 对应的方法（包括：注解、参数、BeanFactory获取的实例对象）。后续在 HandlerAdapter 中命中 mapping 映射后，进行调用。
+				// 注册：
+				// 		mapping 与 HandlerMethod 映射关系是用 Map 进行存储的，格式：Map<T, HandlerMethod> mappingLookup
 				registerHandlerMethod(handler, invocableMethod, mapping);
 			});
 		}

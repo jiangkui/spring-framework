@@ -498,15 +498,42 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * Initialize the strategy objects that this servlet uses.
 	 * <p>May be overridden in subclasses in order to initialize further strategy objects.
 	 */
+
+	/**
+	 * 初始化策略，除非使用了其中的相关功能，否则都是默认配置
+	 *
+	 * 默认：配置定义在 DispatcherServlet.properties 文件中
+	 *
+	 * 注意：无论是自定义还是使用默认配置，都是通过 WebApplicationContext 创建的，不是通过反射创建的！两者最大的区别在于：
+	 * 		- 反射创建Bean：只会调用 Bean 的构造方法创建 Bean，不会调用其他方法。
+	 * 		- 容器创建Bean：会按 Bean 声明周期执行一系列方法，比如：调用 Bean 的 InitializingBean 接口方法，这里很多类都是通过 InitializingBean 接口实现初始化的。
+	 */
 	protected void initStrategies(ApplicationContext context) {
+		// 初始化 MultipartResolver 接口，用途：POST 请求 content-type 为 multipart/form-data 时启用
 		initMultipartResolver(context);
+
+		// 初始化 LocaleResolver 接口，用途：国际化
 		initLocaleResolver(context);
+
+		// 初始化 ThemeResolver 接口，用途：主题相关
 		initThemeResolver(context);
+
+		// 初始化 HandlerMapping 接口，用途：请求&处理的映射，默认实现有俩：RequestMappingHandlerMapping、BeanNameUrlHandlerMapping
 		initHandlerMappings(context);
+
+		// 初始化 HandlerAdapter 接口，用途：请求适配，默认实现：RequestMappingHandlerAdapter、HttpRequestHandlerAdapter等
 		initHandlerAdapters(context);
+
+		// 初始化 HandlerExceptionResolver 接口，异常解析器
 		initHandlerExceptionResolvers(context);
+
+		// 初始化 RequestToViewNameTranslator 接口，用途：可以根据 request 来定义 View
 		initRequestToViewNameTranslator(context);
+
+		// 初始化 ViewResolver 接口，用途：spring 处理完成后，做视图解析用。
 		initViewResolvers(context);
+
+		// 初始化 FlashMapManager 接口，用途：存储输入输出属性，一般在重定向时使用。
 		initFlashMapManager(context);
 	}
 
@@ -615,6 +642,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		// Ensure we have at least one HandlerMapping, by registering
 		// a default HandlerMapping if no other mappings are found.
 		if (this.handlerMappings == null) {
+			// 提供三个默认实例，由 DispatcherServlet.properties 文件定义
 			this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);
 			if (logger.isTraceEnabled()) {
 				logger.trace("No HandlerMappings declared for servlet '" + getServletName() +
@@ -858,6 +886,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	@SuppressWarnings("unchecked")
 	protected <T> List<T> getDefaultStrategies(ApplicationContext context, Class<T> strategyInterface) {
 		String key = strategyInterface.getName();
+		// 默认配置在：DispatcherServlet.properties 文件中
 		String value = defaultStrategies.getProperty(key);
 		if (value != null) {
 			String[] classNames = StringUtils.commaDelimitedListToStringArray(value);
@@ -939,6 +968,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 
 		try {
+			// 调度
 			doDispatch(request, response);
 		}
 		finally {
@@ -995,6 +1025,9 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @param request current HTTP request
 	 * @param response current HTTP response
 	 * @throws Exception in case of any kind of processing failure
+	 */
+	/**
+	 * TODO 这里面是 spring-webmvc 核心执行流程，详细看看
 	 */
 	protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		HttpServletRequest processedRequest = request;

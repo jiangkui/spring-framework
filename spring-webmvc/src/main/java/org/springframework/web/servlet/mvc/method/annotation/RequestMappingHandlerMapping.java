@@ -157,6 +157,11 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		this.embeddedValueResolver = resolver;
 	}
 
+	/**
+	 * RequestMappingHandlerMapping 由 WebApplicationContext 实例化，实例化过程中会调用 Spring 中 Bean 生命周期的相关方法，此方法就是其中之一：InitializingBean 接口的方法
+	 *
+	 * 功能：找出 Spring 容器中被 @Controller 注解修饰的Bean 和被 @RequestMapping 注解标注的类和方法
+	 */
 	@Override
 	public void afterPropertiesSet() {
 		this.config = new RequestMappingInfo.BuilderConfiguration();
@@ -167,6 +172,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		this.config.setRegisteredSuffixPatternMatch(this.useRegisteredSuffixPatternMatch);
 		this.config.setContentNegotiationManager(getContentNegotiationManager());
 
+		// 调用父类的方法
 		super.afterPropertiesSet();
 	}
 
@@ -223,6 +229,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	@Override
 	@Nullable
 	protected RequestMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
+		// 获取被 @RequestMapping 标注的 Method
 		RequestMappingInfo info = createRequestMappingInfo(method);
 		if (info != null) {
 			RequestMappingInfo typeInfo = createRequestMappingInfo(handlerType);
