@@ -222,7 +222,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				processCandidateBean(beanName);
 			}
 		}
-		// TODO 搞到这里
+		// 扩展点，默认只打印了一句日志（输出 mapping 数量有多少）
 		handlerMethodsInitialized(getHandlerMethods());
 	}
 
