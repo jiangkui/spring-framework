@@ -556,18 +556,50 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	@Override
 	public void afterPropertiesSet() {
 		// Do this first, it may add ResponseBody advice beans
+		// 初始化 @ControllerAdvice 注解的对象
+		// 		- 功能：把此注解标注的 Class 中的 @ExceptionHandler、@InitBinder、@ModelAttribute注解的方法应用到所有的 @RequestMapping注解的方法
+		// 		- 博客 :https://jinnianshilongnian.iteye.com/blog/1866350
 		initControllerAdviceCache();
 
+		// 初始化默认的参数解析器列表（入参解析器）。
+		//
+		// 接口：HandlerMethodArgumentResolver
+		// 功能：处理方法中参数的注解，如：
+		// 		- @ModelAttribute：由 ModelAttributeMethodProcessor 处理
+		// 		- @RequestBody：由 RequestResponseBodyMethodProcessor 处理
+		// 		- @RequestParam：由 RequestParamMapMethodArgumentResolver 处理
+		//		- 还有很多，不列举了...
+		//		- 支持自定义，自定义的参数解析器会被追加到这个 resolvers 中，自定义解析器实现很简单，google 搜这个接口能找到很多实现案例
 		if (this.argumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultArgumentResolvers();
+			// 搞一个复合对象存储这些 参数解析器
 			this.argumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+
+		// 同上，也是初始化参数解析器列表（入参解析器），区别在于，这里获取的是 @initBinder 用的参数解析器列表。
+		//
+		// 接口：
+		// 		@InitBinder
+		// 功能：
+		// 		注解，用来标注初始化 WebDataBinder 接口的方法。
+		//
+		// 接口：
+		// 		WebDataBinder
+		// 功能：
+		// 		用于从 Web 请求参数到 JavaBean 对象的数据绑定。（Request.getParameter() 获取到的参数都是字符串形式的，需要用 WebDataBinder 做类型转换）
+		// 应用：
+		// 		SpringMVC 中不支持日期类型的属性自动转换，就需要手动搞一个 WebDatBinder 来做日期类型转换。
 		if (this.initBinderArgumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultInitBinderArgumentResolvers();
+			// 搞一个复合对象存储这些 参数解析器
 			this.initBinderArgumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+
+		// 初始化默认的响应参数解析器列表（出参解析器）
+		// 接口、功能都同上，只不过处理的是标记出参的注解，如：@ResponseBody、@ModelAttribute等等
 		if (this.returnValueHandlers == null) {
 			List<HandlerMethodReturnValueHandler> handlers = getDefaultReturnValueHandlers();
+			// 搞一个复合对象存储这些 参数解析器
 			this.returnValueHandlers = new HandlerMethodReturnValueHandlerComposite().addHandlers(handlers);
 		}
 	}
@@ -577,6 +609,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			return;
 		}
 
+		// 获取所有 @ControllerAdvices 标注的实例
 		List<ControllerAdviceBean> adviceBeans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
 		AnnotationAwareOrderComparator.sort(adviceBeans);
 
@@ -587,14 +620,20 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			if (beanType == null) {
 				throw new IllegalStateException("Unresolvable type for ControllerAdviceBean: " + adviceBean);
 			}
+
+			// 筛选出带有ModelAttribute且不带RequestMapping注解的方法
 			Set<Method> attrMethods = MethodIntrospector.selectMethods(beanType, MODEL_ATTRIBUTE_METHODS);
 			if (!attrMethods.isEmpty()) {
 				this.modelAttributeAdviceCache.put(adviceBean, attrMethods);
 			}
+
+			// 筛选出带InitBinder注解的方法
 			Set<Method> binderMethods = MethodIntrospector.selectMethods(beanType, INIT_BINDER_METHODS);
 			if (!binderMethods.isEmpty()) {
 				this.initBinderAdviceCache.put(adviceBean, binderMethods);
 			}
+
+			// 如果该类同时实现了ResponseBodyAdvice接口 添加到结合中
 			if (RequestBodyAdvice.class.isAssignableFrom(beanType) || ResponseBodyAdvice.class.isAssignableFrom(beanType)) {
 				requestResponseBodyAdviceBeans.add(adviceBean);
 			}
