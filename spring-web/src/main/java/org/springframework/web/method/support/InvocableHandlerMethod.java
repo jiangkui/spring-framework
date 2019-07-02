@@ -131,10 +131,22 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	public Object invokeForRequest(NativeWebRequest request, @Nullable ModelAndViewContainer mavContainer,
 			Object... providedArgs) throws Exception {
 
+		// 获取方法参数值，很多方式，列举以下三个常见注解，都是在这里处理的：
+		// 		- @RequestBody：
+		// 			- 功能：接收Json格式 --> 对应数据类型
+		// 			- 实现：RequestResponseBodyMethodProcessor
+		// 		- @ModelAttribute：
+		// 			- 功能：表单数据 --> 绑定到Model对象
+		//			- 实现：
+		// 		- @RequestParam：
+		// 			- 功能：表单参数 --> 注解标注的变量上
+		//			- 实现：RequestParamMethodArgumentResolver
 		Object[] args = getMethodArgumentValues(request, mavContainer, providedArgs);
 		if (logger.isTraceEnabled()) {
 			logger.trace("Arguments: " + Arrays.toString(args));
 		}
+
+		// 调用用户代码执行具体逻辑
 		return doInvoke(args);
 	}
 
