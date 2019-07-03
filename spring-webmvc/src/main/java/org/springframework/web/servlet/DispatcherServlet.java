@@ -515,13 +515,13 @@ public class DispatcherServlet extends FrameworkServlet {
 		// 初始化 LocaleResolver 接口，用途：国际化
 		initLocaleResolver(context);
 
-		// 初始化 ThemeResolver 接口，用途：主题相关
+		// 初始化 ThemeResolver 接口，用途：主题解析器，用来解析 ThemeSource一个主题就是一组静态资源（比如样式和图片），用来控制网页风格
 		initThemeResolver(context);
 
 		// 初始化 HandlerMapping 接口，用途：请求&处理的映射，默认实现有俩：RequestMappingHandlerMapping、BeanNameUrlHandlerMapping
 		initHandlerMappings(context);
 
-		// 初始化 HandlerAdapter 接口，用途：请求适配，默认实现：RequestMappingHandlerAdapter、HttpRequestHandlerAdapter等
+		// 初始化 HandlerAdapter 接口，用途：适配当前http请求，针对请求类型选择不同是适配器：TODO 描述好 注解方法处理适配器（RequestMappingHandlerAdapter）、Http远程调用（HttpRequestHandlerAdapter）
 		initHandlerAdapters(context);
 
 		// 初始化 HandlerExceptionResolver 接口，异常解析器
@@ -944,7 +944,7 @@ public class DispatcherServlet extends FrameworkServlet {
 
 		// Keep a snapshot of the request attributes in case of an include,
 		// to be able to restore the original attributes after the include.
-		// 存储 request 属性快照，用于恢复原始属性
+		// 存储 request 属性快照，用户的代码可能会修改 request 中的参数，所以要存一份快照，等调用完用户代码后，再恢复 request参数
 		Map<String, Object> attributesSnapshot = null;
 		if (WebUtils.isIncludeRequest(request)) {
 			attributesSnapshot = new HashMap<>();
@@ -1050,16 +1050,20 @@ public class DispatcherServlet extends FrameworkServlet {
 				multipartRequestParsed = (processedRequest != request);
 
 				// Determine handler for the current request.
+				// 确定当前请求的 handler
 				mappedHandler = getHandler(processedRequest);
 				if (mappedHandler == null) {
+					// 没找到合适的 handler，通过 response 返回错误信息
 					noHandlerFound(processedRequest, response);
 					return;
 				}
 
 				// Determine handler adapter for the current request.
+				// 根据 handler 确定 HandlerAdapter
 				HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
 				// Process last-modified header, if supported by the handler.
+				// 处理 Http header：last-modified
 				String method = request.getMethod();
 				boolean isGet = "GET".equals(method);
 				if (isGet || "HEAD".equals(method)) {
@@ -1069,6 +1073,7 @@ public class DispatcherServlet extends FrameworkServlet {
 					}
 				}
 
+				// 调用拦截器：HandlerInterceptor#preHandle()
 				if (!mappedHandler.applyPreHandle(processedRequest, response)) {
 					return;
 				}
@@ -1080,7 +1085,10 @@ public class DispatcherServlet extends FrameworkServlet {
 					return;
 				}
 
+				// 视图名称转换应用于需要添加前缀后缀的情况
 				applyDefaultViewName(processedRequest, mv);
+
+				// 调用拦截器：HandlerInterceptor#postHandle()
 				mappedHandler.applyPostHandle(processedRequest, response, mv);
 			}
 			catch (Exception ex) {
@@ -1091,6 +1099,8 @@ public class DispatcherServlet extends FrameworkServlet {
 				// making them available for @ExceptionHandler methods and other scenarios.
 				dispatchException = new NestedServletException("Handler dispatch failed", err);
 			}
+
+			// 处理调度结果，主要是 ModelAndView 和 Exception 的处理
 			processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
 		}
 		catch (Exception ex) {
@@ -1138,6 +1148,7 @@ public class DispatcherServlet extends FrameworkServlet {
 
 		boolean errorView = false;
 
+		// 异常相关处理
 		if (exception != null) {
 			if (exception instanceof ModelAndViewDefiningException) {
 				logger.debug("ModelAndViewDefiningException encountered", exception);
@@ -1151,6 +1162,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 
 		// Did the handler return a view to render?
+		// 视图相关处理
 		if (mv != null && !mv.wasCleared()) {
 			render(mv, request, response);
 			if (errorView) {
@@ -1169,6 +1181,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 
 		if (mappedHandler != null) {
+			// 调用拦截器的第三个方法：HandlerInterceptor#afterCompletion() ，只有调用成功才会进行这个方法回调。
 			mappedHandler.triggerAfterCompletion(request, response, null);
 		}
 	}
