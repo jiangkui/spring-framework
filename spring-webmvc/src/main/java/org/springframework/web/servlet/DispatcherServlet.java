@@ -489,15 +489,13 @@ public class DispatcherServlet extends FrameworkServlet {
 	/**
 	 * This implementation calls {@link #initStrategies}.
 	 */
+
+
 	@Override
 	protected void onRefresh(ApplicationContext context) {
+		// 调用初始化策略
 		initStrategies(context);
 	}
-
-	/**
-	 * Initialize the strategy objects that this servlet uses.
-	 * <p>May be overridden in subclasses in order to initialize further strategy objects.
-	 */
 
 	/**
 	 * 初始化策略，除非使用了其中的相关功能，否则都是默认配置
@@ -521,7 +519,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		// 初始化 HandlerMapping 接口，用途：请求&处理的映射，默认实现有俩：RequestMappingHandlerMapping、BeanNameUrlHandlerMapping
 		initHandlerMappings(context);
 
-		// 初始化 HandlerAdapter 接口，用途：适配当前http请求，针对请求类型选择不同是适配器：TODO 描述好 注解方法处理适配器（RequestMappingHandlerAdapter）、Http远程调用（HttpRequestHandlerAdapter）
+		// 初始化 HandlerAdapter 接口，用途：适配当前http请求，针对请求类型选择不同的适配器，为DispatcherServlet 屏蔽 Controller 的细节，比如：出入参数不同
 		initHandlerAdapters(context);
 
 		// 初始化 HandlerExceptionResolver 接口，异常解析器
