@@ -935,13 +935,16 @@ public class DispatcherServlet extends FrameworkServlet {
 
 	/**
 	 * 统一收口所有 request，委托给 doDispatch() 进行调度
+	 *
+	 * 流程比较简单：
+	 * 		1.缓存 request 属性快照，调用玩用户代码之后（可能修改 request），用来回复 request 属性。
+	 * 		2.参数设置：这些参数就是之前 initStrategies() 方法初始化的各种对象。
+	 * 		3.调用 doDispatch()，这里是 spring-webmvc 的核心处理流程。
 	 */
 	@Override
 	protected void doService(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		logRequest(request);
 
-		// Keep a snapshot of the request attributes in case of an include,
-		// to be able to restore the original attributes after the include.
 		// 存储 request 属性快照，用户的代码可能会修改 request 中的参数，所以要存一份快照，等调用完用户代码后，再恢复 request参数
 		Map<String, Object> attributesSnapshot = null;
 		if (WebUtils.isIncludeRequest(request)) {
@@ -971,7 +974,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		}
 
 		try {
-			// 调度
+			// 进行调度
 			doDispatch(request, response);
 		}
 		finally {
@@ -1029,8 +1032,10 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @param response current HTTP response
 	 * @throws Exception in case of any kind of processing failure
 	 */
+
 	/**
-	 * spring-webmvc 核心调度流程
+	 * spring-webmvc 核心调度流程，几个核心的事情都是在这里处理的：
+	 * 		1.RequestMapping 映射处理：通过 request
 	 */
 	protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		HttpServletRequest processedRequest = request;
@@ -1044,24 +1049,26 @@ public class DispatcherServlet extends FrameworkServlet {
 			Exception dispatchException = null;
 
 			try {
+				// 0. MultipartContent 类型的 request 处理，用途：多部分请求的策略（比如：文件上传）
 				processedRequest = checkMultipart(request);
 				multipartRequestParsed = (processedRequest != request);
 
-				// Determine handler for the current request.
-				// 确定当前请求的 handler
+				// 1.确定当前请求的 Handler
+				// 		包含：Handler 内有与当前 request url 路径匹配的 Controller 实例和具体方法
+				// 		原理：循环 handlerMappings 通过 request 的 URL（直接匹配、通配符匹配） 查找对应的 Handler，还会加入拦截器。（handlerMappings 在 initStrategies() 初始化）
 				mappedHandler = getHandler(processedRequest);
 				if (mappedHandler == null) {
-					// 没找到合适的 handler，通过 response 返回错误信息
+					// 没找到合适的 handler，则通过 response 返回错误信息
 					noHandlerFound(processedRequest, response);
 					return;
 				}
 
-				// Determine handler adapter for the current request.
-				// 根据 handler 确定 HandlerAdapter
+				// 2.确定 handlerAdapter
+				// 		功能：handler 中方法的入参出参都不同，调用 handler 时，需要用 handlerAdapter 来做适配
+				// 		原理：循环 handlerAdapters，根据 handlerAdapter.supports(handler) 确定具体的 HandlerAdapter（handlerAdapters 在 initStrategies() 初始化）
 				HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
-				// Process last-modified header, if supported by the handler.
-				// 处理 Http header：last-modified
+				// 3.处理 Http 缓存机制（Http last-modified Header）
 				String method = request.getMethod();
 				boolean isGet = "GET".equals(method);
 				if (isGet || "HEAD".equals(method)) {
@@ -1071,22 +1078,22 @@ public class DispatcherServlet extends FrameworkServlet {
 					}
 				}
 
-				// 调用拦截器：HandlerInterceptor#preHandle()
+				// 4.Spring 拦截器：HandlerInterceptor#preHandle()
 				if (!mappedHandler.applyPreHandle(processedRequest, response)) {
 					return;
 				}
 
-				// 调用实际的处理代码，被 @RequestMapping 标注的代码
+				// 5.逻辑处理：通过 handlerAdapter 适配，调用 Handler（用户代码），返回 ModelAndView。
 				mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
 
 				if (asyncManager.isConcurrentHandlingStarted()) {
 					return;
 				}
 
-				// 视图名称转换应用于需要添加前缀后缀的情况
+				// 6.视图名称转换应用于需要添加前缀后缀的情况
 				applyDefaultViewName(processedRequest, mv);
 
-				// 调用拦截器：HandlerInterceptor#postHandle()
+				// 7.Spring 拦截器：HandlerInterceptor#postHandle()
 				mappedHandler.applyPostHandle(processedRequest, response, mv);
 			}
 			catch (Exception ex) {
@@ -1098,7 +1105,7 @@ public class DispatcherServlet extends FrameworkServlet {
 				dispatchException = new NestedServletException("Handler dispatch failed", err);
 			}
 
-			// 处理调度结果，主要是 ModelAndView 和 Exception 的处理
+			// 8.处理 ModelAndView 和 Exception（异常视图）
 			processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
 		}
 		catch (Exception ex) {
