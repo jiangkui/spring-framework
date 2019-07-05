@@ -146,7 +146,7 @@ public class InvocableHandlerMethod extends HandlerMethod {
 			logger.trace("Arguments: " + Arrays.toString(args));
 		}
 
-		// 调用用户代码执行具体逻辑
+		//1.1.2 反射完成过程调用
 		return doInvoke(args);
 	}
 
@@ -159,6 +159,7 @@ public class InvocableHandlerMethod extends HandlerMethod {
 	protected Object[] getMethodArgumentValues(NativeWebRequest request, @Nullable ModelAndViewContainer mavContainer,
 			Object... providedArgs) throws Exception {
 
+		//参数信息
 		MethodParameter[] parameters = getMethodParameters();
 		if (ObjectUtils.isEmpty(parameters)) {
 			return EMPTY_ARGS;
@@ -172,10 +173,13 @@ public class InvocableHandlerMethod extends HandlerMethod {
 			if (args[i] != null) {
 				continue;
 			}
+
+			// 调用 HandlerMethodArgumentResolver#supportsParameter 判断是否支持
 			if (!this.resolvers.supportsParameter(parameter)) {
 				throw new IllegalStateException(formatArgumentError(parameter, "No suitable resolver"));
 			}
 			try {
+				// 调用 HandlerMethodArgumentResolver#resolveArgument 进行解析
 				args[i] = this.resolvers.resolveArgument(parameter, mavContainer, request, this.dataBinderFactory);
 			}
 			catch (Exception ex) {
