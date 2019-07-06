@@ -563,8 +563,10 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 
 		// 初始化默认的参数解析器列表（入参解析器）。
 		//
-		// 接口：HandlerMethodArgumentResolver
-		// 功能：处理方法中参数的注解，如：
+		// 接口：
+		// 		HandlerMethodArgumentResolver
+		// 功能：
+		// 		处理方法中参数的注解，如：
 		// 		- @ModelAttribute：由 ModelAttributeMethodProcessor 处理
 		// 		- @RequestBody：由 RequestResponseBodyMethodProcessor 处理
 		// 		- @RequestParam：由 RequestParamMapMethodArgumentResolver 处理
@@ -596,7 +598,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		}
 
 		// 初始化默认的响应参数解析器列表（出参解析器）
-		// 接口、功能都同上，只不过处理的是标记出参的注解，如：@ResponseBody、@ModelAttribute等等
+		//
+		// 接口：
+		//		HandlerMethodReturnValueHandler
+		// 功能：
+		// 		接口、功能都同上，只不过处理的是标记出参的注解，如：
+		// 		- @ResponseBody
+		// 		- @ModelAttribute
+		//		- 等等
 		if (this.returnValueHandlers == null) {
 			List<HandlerMethodReturnValueHandler> handlers = getDefaultReturnValueHandlers();
 			// 搞一个复合对象存储这些 参数解析器
@@ -836,6 +845,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			mav = invokeHandlerMethod(request, response, handlerMethod);
 		}
 
+		// Http Cache-Control Header 处理
 		if (!response.containsHeader(HEADER_CACHE_CONTROL)) {
 			if (getSessionAttributesHandler(handlerMethod).hasSessionAttributes()) {
 				applyCacheSeconds(response, this.cacheSecondsForSessionAttributeHandlers);
@@ -892,6 +902,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
 			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
 
+		// 为 request/response 对创建一个新的 ServletWebRequest 存储。
 		ServletWebRequest webRequest = new ServletWebRequest(request, response);
 		try {
 			// 使用 initBinderAdviceCache 对 @initBinder 进行处理
@@ -900,31 +911,39 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			// 使用 modelAttributeAdviceCache 对 @ModelAttribute 进行处理
 			ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
 
-			// FIXME 下面这一堆都是干啥的？
+			// 对 HandlerMethod 的装饰，主要提供参数解析和返回值转化等功能（通过已注册的 HandlerMethodArgumentResolver、HandlerMethodReturnValueHandler 处理出入参）
 			ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
 			if (this.argumentResolvers != null) {
+				// 设置入参解析器，argumentResolvers 之前初始化过，DispatcherServlet#initStrategies
 				invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
 			}
 			if (this.returnValueHandlers != null) {
+				// 设置出参解析器，returnValueHandlers 之前初始化过，DispatcherServlet#initStrategies
 				invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
 			}
+			// 提供对 @InitBinder 处理的支持。
 			invocableMethod.setDataBinderFactory(binderFactory);
 			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
 
+			// ModelAndView 容器，用途暂且未知：
 			ModelAndViewContainer mavContainer = new ModelAndViewContainer();
 			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
 			modelFactory.initModel(webRequest, mavContainer, invocableMethod);
 			mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
 
+			// AsyncWebRequest 内部持有 AsyncContext 可以通过其开启异步任务
 			AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
 			asyncWebRequest.setTimeout(this.asyncRequestTimeout);
 
 			WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+			// 设置异步执行线程池
 			asyncManager.setTaskExecutor(this.taskExecutor);
 			asyncManager.setAsyncWebRequest(asyncWebRequest);
+			// 异步调用拦截器
 			asyncManager.registerCallableInterceptors(this.callableInterceptors);
 			asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);
 
+			// 如果异步处理完成
 			if (asyncManager.hasConcurrentResult()) {
 				Object result = asyncManager.getConcurrentResult();
 				mavContainer = (ModelAndViewContainer) asyncManager.getConcurrentResultContext()[0];
@@ -933,6 +952,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 					String formatted = LogFormatUtils.formatValue(result, !traceOn);
 					return "Resume with async result [" + formatted + "]";
 				});
+				// 替换invocableMethod(原先异步处理的方法返回值是Callable现在直接返回结果)
 				invocableMethod = invocableMethod.wrapConcurrentResult(result);
 			}
 
