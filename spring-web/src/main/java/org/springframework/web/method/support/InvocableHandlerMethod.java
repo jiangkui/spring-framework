@@ -146,7 +146,7 @@ public class InvocableHandlerMethod extends HandlerMethod {
 			logger.trace("Arguments: " + Arrays.toString(args));
 		}
 
-		//1.1.2 反射完成过程调用
+		//1.1.2 反射完成过程调用，原理：java.lang.reflect.Method#invoke(instance, args);
 		return doInvoke(args);
 	}
 
@@ -175,6 +175,8 @@ public class InvocableHandlerMethod extends HandlerMethod {
 			}
 
 			// 调用 HandlerMethodArgumentResolver#supportsParameter 判断是否支持
+			// 原理：循环 argumentResolverCache，挨个判断是否支持 parameter。
+			// 		例如：@ModelAttribute 是通过判断的：ServletModelAttributeMethodProcessor.hasParameterAnnotation(ModelAttribute.class)
 			if (!this.resolvers.supportsParameter(parameter)) {
 				throw new IllegalStateException(formatArgumentError(parameter, "No suitable resolver"));
 			}

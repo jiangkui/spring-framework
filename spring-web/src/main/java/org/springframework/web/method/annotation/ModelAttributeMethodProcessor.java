@@ -135,6 +135,7 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 		}
 		else {
 			// Create attribute instance
+			// 创建被 @ModelAttribute 注解标注对象的实例，后续会它赋值。（通过 Class 的构造方法创建）
 			try {
 				attribute = createAttribute(name, parameter, binderFactory, webRequest);
 			}
@@ -154,17 +155,23 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 		if (bindingResult == null) {
 			// Bean property binding and validation;
 			// skipped in case of binding failure on construction.
+			// 通过 WebDataBinder 进行属性绑定和验证，WebDataBinder 内部持有 ConversionService（有120多Converters，做属性转换用的，没有日期格式的转换，就是在这里应用的。）
+			// 绑定失败则跳过
 			WebDataBinder binder = binderFactory.createBinder(webRequest, attribute, name);
 			if (binder.getTarget() != null) {
 				if (!mavContainer.isBindingDisabled(name)) {
+					// 把请求参数绑定到 @ModelAttribute 标注的param上
 					bindRequestParameters(binder, webRequest);
 				}
+
+				// 参数检查：对 parameter 上的 @Validated 和 自定义的以 Valid 开头的注释。
 				validateIfApplicable(binder, parameter);
 				if (binder.getBindingResult().hasErrors() && isBindExceptionRequired(binder, parameter)) {
 					throw new BindException(binder.getBindingResult());
 				}
 			}
 			// Value type adaptation, also covering java.util.Optional
+			// 类型适配：如果类型不适配，还需要做一次类型转换
 			if (!parameter.getParameterType().isInstance(attribute)) {
 				attribute = binder.convertIfNecessary(binder.getTarget(), parameter.getParameterType(), parameter);
 			}
@@ -172,6 +179,7 @@ public class ModelAttributeMethodProcessor implements HandlerMethodArgumentResol
 		}
 
 		// Add resolved attribute and BindingResult at the end of the model
+		// 在 ModelAndView 的末尾添加已经解析的 BindingResult
 		Map<String, Object> bindingResultModel = bindingResult.getModel();
 		mavContainer.removeAttributes(bindingResultModel);
 		mavContainer.addAllAttributes(bindingResultModel);

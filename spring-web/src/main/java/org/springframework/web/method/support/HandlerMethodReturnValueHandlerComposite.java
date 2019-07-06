@@ -75,10 +75,13 @@ public class HandlerMethodReturnValueHandlerComposite implements HandlerMethodRe
 	public void handleReturnValue(@Nullable Object returnValue, MethodParameter returnType,
 			ModelAndViewContainer mavContainer, NativeWebRequest webRequest) throws Exception {
 
+		// 跟 List<HandlerMethodArgumentResolver> argumentResolvers 玩法一样，这里是循环 List<HandlerMethodReturnValueHandler> returnValueHandlers，找支持的。
+		// 		例如：@ResponseBody 注解，是 RequestResponseBodyMethodProcessor#supportsReturnType() 方法中，查看 HandlerMethod 中是否包含 @ResponseBody注解
 		HandlerMethodReturnValueHandler handler = selectHandler(returnValue, returnType);
 		if (handler == null) {
 			throw new IllegalArgumentException("Unknown return value type: " + returnType.getParameterType().getName());
 		}
+		// 用找到的 ReturnValueHandler 来处理，@ResponseBody 是把返回结果按 Content-Type: application/json 形式写到输出流（output message）中，内部非常复杂。
 		handler.handleReturnValue(returnValue, returnType, mavContainer, webRequest);
 	}
 

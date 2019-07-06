@@ -962,6 +962,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 				return null;
 			}
 
+			// todo 入参解析、出参解析已经都大概知道了。
 			// 包装 ModelAndView
 			return getModelAndView(mavContainer, modelFactory, webRequest);
 		}
