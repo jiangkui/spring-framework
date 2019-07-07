@@ -528,7 +528,13 @@ public class DispatcherServlet extends FrameworkServlet {
 		// 初始化 RequestToViewNameTranslator 接口，用途：可以根据 request 来定义 View
 		initRequestToViewNameTranslator(context);
 
-		// 初始化 ViewResolver 接口，用途：spring 处理完成后，做视图解析用。
+		// 初始化 ViewResolver 接口，用途：spring 处理完成后，做视图解析用。如：设置 @Controller 返回的 String 视图的前缀后缀。
+		//    <!-- viewResolver常见的配置 -->
+		//    <bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		//        <property name="prefix" value="/WEB-INF/"/>
+		//        <property name="suffix" value=".jsp"/>
+		//        <property name="contentType" value="text/html; charset=utf-8"/>
+		//    </bean>
 		initViewResolvers(context);
 
 		// 初始化 FlashMapManager 接口，用途：存储输入输出属性，一般在重定向时使用。
@@ -1169,6 +1175,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		// Did the handler return a view to render?
 		// 视图相关处理
 		if (mv != null && !mv.wasCleared()) {
+			// 通过 Controller 返回的 mv 字符串，渲染给定的 ModelAndView，同时也会出来 【redirect:】和【forward:】相关配置
 			render(mv, request, response);
 			if (errorView) {
 				WebUtils.clearErrorRequestAttributes(request);
@@ -1397,6 +1404,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	protected void render(ModelAndView mv, HttpServletRequest request, HttpServletResponse response) throws Exception {
 		// Determine locale for request and apply it to the response.
+		// 国际化相关设置
 		Locale locale =
 				(this.localeResolver != null ? this.localeResolver.resolveLocale(request) : request.getLocale());
 		response.setLocale(locale);
