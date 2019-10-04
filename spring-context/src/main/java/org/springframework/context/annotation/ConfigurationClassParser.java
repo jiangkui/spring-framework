@@ -216,8 +216,12 @@ class ConfigurationClassParser {
 		return this.configurationClasses.keySet();
 	}
 
-
+	/**
+	 * 封装成一个 configClass 开始解析
+	 */
 	protected void processConfigurationClass(ConfigurationClass configClass) throws IOException {
+
+		// 判断是否匹配（condition 条件处理，调用：org.springframework.context.annotation.Condition.matches）
 		if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURATION)) {
 			return;
 		}
@@ -242,6 +246,7 @@ class ConfigurationClassParser {
 		// Recursively process the configuration class and its superclass hierarchy.
 		SourceClass sourceClass = asSourceClass(configClass);
 		do {
+			// 处理
 			sourceClass = doProcessConfigurationClass(configClass, sourceClass);
 		}
 		while (sourceClass != null);
@@ -301,6 +306,7 @@ class ConfigurationClassParser {
 			}
 		}
 
+		// 处理任何 @Import 注解
 		// Process any @Import annotations
 		processImports(configClass, sourceClass, getImports(sourceClass), true);
 
@@ -556,6 +562,7 @@ class ConfigurationClassParser {
 			this.importStack.push(configClass);
 			try {
 				for (SourceClass candidate : importCandidates) {
+					// Spring Boot 自动化配置，是从这里搞的，EnableAutoConfiguration 中 @Import 的对象就是 ImportSelector 接口的实现（AutoConfigurationImportSelector.class）
 					if (candidate.isAssignable(ImportSelector.class)) {
 						// Candidate class is an ImportSelector -> delegate to it to determine imports
 						Class<?> candidateClass = candidate.loadClass();
