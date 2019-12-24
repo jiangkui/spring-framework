@@ -113,6 +113,11 @@ public class InjectionMetadata {
 				if (logger.isTraceEnabled()) {
 					logger.trace("Processing injected element of bean '" + beanName + "': " + element);
 				}
+				// 分为两种 AutowiredFieldElement AutowiredMethodElement
+				//     先 byType 找，如果没找到抛：NoSuchBeanDefinitionException
+				//		   @Qualifier 注解在这类验证：QualifierAnnotationAutowireCandidateResolver#checkQualifiers
+				//     如果找到多个，再根据 byName 过滤，如果过滤不掉，则抛出：NoUniqueBeanDefinitionException
+				// 	   最后反射注入即可：field.set(bean, value);
 				element.inject(target, beanName, pvs);
 			}
 		}
