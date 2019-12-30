@@ -333,6 +333,9 @@ public class ScheduledAnnotationBeanPostProcessor
 		return bean;
 	}
 
+	/**
+	 * 扫描所有标记了 @Scheduled 注解的方法，封装成ScheduledTask注册起来
+	 */
 	@Override
 	public Object postProcessAfterInitialization(Object bean, String beanName) {
 		if (bean instanceof AopInfrastructureBean || bean instanceof TaskScheduler ||
