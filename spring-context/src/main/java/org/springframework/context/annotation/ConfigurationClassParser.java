@@ -322,6 +322,7 @@ class ConfigurationClassParser {
 			}
 		}
 
+		// 处理被 @Bean 标注的方法（创建 Bean 的方法）
 		// Process individual @Bean methods
 		Set<MethodMetadata> beanMethods = retrieveBeanMethodMetadata(sourceClass);
 		for (MethodMetadata methodMetadata : beanMethods) {
