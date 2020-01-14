@@ -1412,7 +1412,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (pvs == null) {
 				pvs = mbd.getPropertyValues();
 			}
-			// @Autowired 是在这里处理的，由：AutowiredAnnotationBeanPostProcessor.postProcessProperties 处理
+			// @Autowired 是在这里处理的，由：AutowiredAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byType进行匹配，spring 提供的注解
+			// @Resource 也是在这里处理的，由：CommonAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byName进行匹配，javax 提供的注解
+			//
 			// 相关文章：
 			//    - MergedBeanDefinitionPostProcessor和@Autowired，@Value的关系：https://blog.csdn.net/luoyang_java/article/details/85709475
 			//    - InstantiationAwareBeanPostProcessor和@Autowired，@Value的依赖注入：https://blog.csdn.net/luoyang_java/article/details/85728824
