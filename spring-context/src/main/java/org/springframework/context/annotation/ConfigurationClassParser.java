@@ -221,7 +221,7 @@ class ConfigurationClassParser {
 	 */
 	protected void processConfigurationClass(ConfigurationClass configClass) throws IOException {
 
-		// 判断是否匹配（condition 条件处理，调用：org.springframework.context.annotation.Condition.matches）
+		// 判断是否匹配（@Condition 条件处理，调用：org.springframework.context.annotation.Condition.matches）
 		if (this.conditionEvaluator.shouldSkip(configClass.getMetadata(), ConfigurationPhase.PARSE_CONFIGURATION)) {
 			return;
 		}

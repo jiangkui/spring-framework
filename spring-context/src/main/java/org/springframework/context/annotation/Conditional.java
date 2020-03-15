@@ -51,6 +51,11 @@ import java.lang.annotation.Target;
  * custom <em>composed annotation</em> that is meta-annotated with
  * {@code @Conditional} must not be declared as {@code @Inherited}.
  *
+ * 处理时机：
+ * - @Component 是在注解扫描时处理的，不满足条件，不会被加载成 BeanDefinition，详情：org.springframework.context.annotation.ClassPathBeanDefinitionScanner#doScan(java.lang.String...)
+ * - @Configuration 是在这个类处理的：org.springframework.context.annotation.ConfigurationClassPostProcessor#processConfigBeanDefinitions(org.springframework.beans.factory.support.BeanDefinitionRegistry)
+ *
+ *
  * @author Phillip Webb
  * @author Sam Brannen
  * @since 4.0
