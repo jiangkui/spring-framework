@@ -103,17 +103,34 @@ class ConfigBeanDefinitionParser implements BeanDefinitionParser {
 				new CompositeComponentDefinition(element.getTagName(), parserContext.extractSource(element));
 		parserContext.pushContainingComponent(compositeDef);
 
+		// 创建 AOP 自动代理器：AnnotationAwareAspectJAutoProxyCreator
 		configureAutoProxyCreator(parserContext, element);
 
 		List<Element> childElts = DomUtils.getChildElements(element);
 		for (Element elt: childElts) {
 			String localName = parserContext.getDelegate().getLocalName(elt);
+
+			// 解析 <aop:pointcut> 节点，向Spring容器中注册：AspectJExpressionPointcut
 			if (POINTCUT.equals(localName)) {
 				parsePointcut(elt, parserContext);
 			}
+			// 解析 <aop:advisor> 节点，向Spring容器中注册：DefaultBeanFactoryPointcutAdvisor
 			else if (ADVISOR.equals(localName)) {
 				parseAdvisor(elt, parserContext);
 			}
+
+			/*
+			 	解析 <aop:aspect> 节点
+					- 不创建BeanDefinition
+					- 对 advice 类型的节点提供 aspect 方法
+					- 为内部的 before、after 等节点创建BeanDefinition
+				切面：
+					- <before>：AspectJMethodBeforeAdvice
+					- <after>：AspectJAfterAdvice
+					- <after-returning>：AspectJAfterReturningAdvice
+					- <after-throwing>：AspectJAfterThrowingAdvice
+					- <around>：AspectJAroundAdvice
+			 */
 			else if (ASPECT.equals(localName)) {
 				parseAspect(elt, parserContext);
 			}

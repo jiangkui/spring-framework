@@ -542,20 +542,20 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			prepareRefresh();
 
 			// Tell the subclass to refresh the internal bean factory.
-			// 刷新 BeanFactory。功能：查找要 Spring 管理的 Bean（SpringCore、SpringMVC 使用这部分功能，SpringBoot不用，子类实现方法不同）
+			// 功能：刷新 BeanFactory，注册 BeanDefinition。通过解析 XML 实现注册（SpringCore、SpringMVC 使用这部分功能，SpringBoot不用，子类实现方法不同）
+			// 默认实现：AbstractRefreshableApplicationContext#refreshBeanFactory
+			// 注意：SpringBoot 注册 BeanDefinition 是在 BeanDefinitionRegistryPostProcessor#postProcessBeanDefinitionRegistry() 实现的
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
-			// 准备 BeanFactory。功能：
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
-				//
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
-				//
+				// 调用 BeanFactoryPostProcessor，包括 Bean
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
@@ -574,6 +574,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.
+				// 完成 BeanFactory 的初始化
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
@@ -661,6 +662,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+		// 默认实现是：AbstractRefreshableApplicationContext#refreshBeanFactory，通过解析 XML 来注册 BeanDefinition
 		refreshBeanFactory();
 		return getBeanFactory();
 	}
@@ -902,6 +904,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.freezeConfiguration();
 
 		// Instantiate all remaining (non-lazy-init) singletons.
+		// 预实例化单例Bean
 		beanFactory.preInstantiateSingletons();
 	}
 

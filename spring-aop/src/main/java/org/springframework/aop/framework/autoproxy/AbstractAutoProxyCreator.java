@@ -290,6 +290,41 @@ public abstract class AbstractAutoProxyCreator extends ProxyProcessorSupport
 	 * Create a proxy with the configured interceptors if the bean is
 	 * identified as one to proxy by the subclass.
 	 * @see #getAdvicesAndAdvisorsForBean
+	 *
+	 * 【AOP实现原理】
+	 * 		1) <aop:aspectj-autoproxy> 解析时
+	 * 			- 注入：AnnotationAwareAspectJAutoProxyCreator
+	 * 		2) Bean 被调用的地方：
+	 * 			- 功能：找是否有符合此 Bean 的 Advisor，根据 Advisor 的 point-cut 找，如有，则创建代理
+	 * 			- 触发接口：BeanPostProcessor#postProcessAfterInitialization
+	 * 			- 触发实现：AbstractAutoProxyCreator#postProcessAfterInitialization（步骤①的父类）
+	 * 			- 循环依赖时：不会执行3)，会执行 AbstractAutoProxyCreator#getEarlyBeanReference()，详情参见 github：Spring 循环依赖问题.md 笔记
+	 * 		3) 查找对应的 Advisor
+	 * 			- 获取所有的 Advisor：从所有的 BeanDefinition 中找所有的 Advisor.class
+	 * 			- 判断是否要代理：此类满足 expression，并且此类中至少一个方法满足 expression
+	 * 		4) 创建代理
+	 * 			- 实现类：DefaultAopProxyFactory#createAopProxy
+	 * 			- 对类生成代理，用 ObjenesisCglibAopProxy：
+	 * 				- 实现方式是 ASM，通过继承原始类实现
+	 * 			- 对接口生成代理，用 JdkDynamicAopProxy：
+	 * 				- 生成的Class 会 extend java.lang.reflect.Proxy implement 原始Interface
+	 * 				- 所以：只能对接口代理。不能对类代理，因为java不能继承两个 class
+	 * 			- 可以通过配置文件指定对接口使用 ObjenesisCglibAopProxy
+	 * 		5) 关于JDK代理 & cglib 代理的相关文章
+	 * 			- https://juejin.cn/post/6844903744954433544
+	 * 		6) JDK代理 & cglib 代理的比较
+	 * 			- JDK Proxy 的优势：
+	 * 				- 最小化依赖关系，减少依赖意味着简化开发和维护，JDK 本身的支持，可能比 cglib 更加可靠。
+	 * 				- 平滑进行 JDK 版本升级，而字节码类库通常需要进行更新以保证在新版 Java 上能够使用。
+	 * 				- 代码实现简单。
+	 *			- 基于类似 cglib 框架的优势：
+	 * 				- 无需实现接口，达到代理类无侵入
+	 * 				- 只操作我们关心的类，而不必为其他相关类增加工作量。
+	 * 				- 高性能
+	 * 		7）ASM、javaassit、cglib区别
+	 * 				- ASM：通过JVM的汇编指令操作字节码，门槛很高
+	 * 				- javassist：通过java编码的形式，来修改原始 Class，门槛不高。
+	 * 				- cglib：不修改原始 Class，而是通过 extend 原始类，生成子代理类。(Code Generation Library）生成动态代理类的机制
 	 */
 	@Override
 	public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) {

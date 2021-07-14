@@ -412,6 +412,7 @@ public class BeanDefinitionParserDelegate {
 	 */
 	@Nullable
 	public BeanDefinitionHolder parseBeanDefinitionElement(Element ele, @Nullable BeanDefinition containingBean) {
+		// id、name 等基本属性
 		String id = ele.getAttribute(ID_ATTRIBUTE);
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
 
@@ -434,6 +435,7 @@ public class BeanDefinitionParserDelegate {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
 
+		// 解析 <bean> 生成 BeanDefinition
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
 		if (beanDefinition != null) {
 			if (!StringUtils.hasText(beanName)) {
@@ -512,9 +514,13 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		try {
+			// new 一个 GenericBeanDefinition
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
 
+			// 解析 Attributes 配置，并赋值，包括：scope、abstract、lazy-init、autowired、init-method、destroy-method 等等
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
+
+			// 解析其他配置并赋值。包括：meta、lookup-method等等吧
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
 			parseMetaElements(ele, bd);
@@ -1358,11 +1364,18 @@ public class BeanDefinitionParserDelegate {
 		if (namespaceUri == null) {
 			return null;
 		}
+
+		// 通过 namespace 查找对应的 NamespaceHandler，例如：
+		// <context:component-scan base-package="xxx"/>，返回的是 ContextNamespaceHandler
+		// <aop:aspectj-autoproxy />，返回的是 AopNamespaceHandler
+		// 内部含有 NamespaceHandler 初始化逻辑，从所有jar包内查找：META-INF/spring.handlers 文件来加载，当然我们也可以自定义
 		NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
 		if (handler == null) {
 			error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
 			return null;
 		}
+		// 用 NamespaceHandler 来解析对应的 XML，我们也可以自定义。
+		// 以 ContextNamespaceHandler 为例
 		return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
 	}
 

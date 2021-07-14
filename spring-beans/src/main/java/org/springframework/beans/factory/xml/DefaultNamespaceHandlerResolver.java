@@ -115,6 +115,7 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 	@Override
 	@Nullable
 	public NamespaceHandler resolve(String namespaceUri) {
+		// 初始化 并 缓存 NamespaceHandler，从所有jar包内查找：META-INF/spring.handlers 文件来加载，当然我们也可以自定义
 		Map<String, Object> handlerMappings = getHandlerMappings();
 		Object handlerOrClassName = handlerMappings.get(namespaceUri);
 		if (handlerOrClassName == null) {
@@ -160,6 +161,13 @@ public class DefaultNamespaceHandlerResolver implements NamespaceHandlerResolver
 						logger.trace("Loading NamespaceHandler mappings from [" + this.handlerMappingsLocation + "]");
 					}
 					try {
+						/*
+						 	默认从所有 jar 包内查找：META-INF/spring.handlers 配置，有很多（直接搜 spring.handlers 文件就能看到很多）：
+						 		spring-context/src/main/resources/META-INF/spring.handlers
+						 		spring-aop/src/main/resources/META-INF/spring.handlers
+						 		spring-webmvc/src/main/resources/META-INF/spring.handlers
+						 		...
+						 */
 						Properties mappings =
 								PropertiesLoaderUtils.loadAllProperties(this.handlerMappingsLocation, this.classLoader);
 						if (logger.isTraceEnabled()) {

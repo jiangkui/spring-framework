@@ -427,6 +427,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object result = existingBean;
 		for (BeanPostProcessor processor : getBeanPostProcessors()) {
+			// AOP 由 AbstractAutoProxyCreator#postProcessAfterInitialization 实现
 			Object current = processor.postProcessAfterInitialization(result, beanName);
 			if (current == null) {
 				return result;
@@ -513,6 +514,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			// 创建Bean
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -547,12 +549,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected Object doCreateBean(final String beanName, final RootBeanDefinition mbd, final @Nullable Object[] args)
 			throws BeanCreationException {
 
+		logger.warn("【问题排查】开始创建Bean：" + beanName);
+
 		// Instantiate the bean.
 		BeanWrapper instanceWrapper = null;
 		if (mbd.isSingleton()) {
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
+
+			// 实例化对象：根据配置，用各种手段创建对象，如：CGLIB、工厂、无参构造器、构造方法实例化等等
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		final Object bean = instanceWrapper.getWrappedInstance();
@@ -565,6 +571,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
+					/*
+						@Autowired 功能的前置流程：功能：找出此 Bean 中被 @Autowired 标注的属性
+							- 触发接口：MergedBeanDefinitionPostProcessor#postProcessMergedBeanDefinition
+							- 触发实现：AutowiredAnnotationBeanPostProcessor#postProcessMergedBeanDefinition
+								- 此实现是在：<context:annotation-config> 解析时：注入 @Autowired 的（AutowiredAnnotationBeanPostProcessor）
+							- 原理：class —> Field、Method —> Annotation —> 过滤出 Autowired 和 Qualifier 标注的Field、Method
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -591,7 +604,65 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Initialize the bean instance.
 		Object exposedObject = bean;
 		try {
+			/*
+			 	填充属性：
+			 		为刚才创建的对象填充属性，如：@Autowrie 注入的属性，XML 配置的各种属性等。【IOC在这里实现】
+			 		1) 配置指定 byName 或 byType，按指定处理
+						- byName：
+							根据 name，从当前容器，父容器递归查找依赖
+						- byType：分四中情况获取依赖
+							1. 从 DependencyDescriptor 快速获取对象，（Spring 4.3.1新增）
+							2. AutowireCandidateResolver策略，得看工厂对象采用什么策略
+							3. 处理 Arrays、List、Map 等
+							4. 从容器中获取匹配对象，处理可用的实例
+					2) 扩展点：InstantiationAwareBeanPostProcessor
+						- @Autowried、@Value、@Inject 在这里处理，后续详细介绍。
+					3) 设置属性值
+						- 获取真实属性：
+							- 解析 EL表达式，找真实属性值，做类型转换。
+						- 通过 BeanWrapper 设置属性值
+							1.引用类型：容器直接获取引用对象
+							2.BeanDefinition：
+							3.Array：对集合数组类型的属性进行解析赋值
+							4.List：同上
+							5.Set：同上
+							6.Map：同上
+							7.Properties：同上
+							8.Value：同上
+			 */
 			populateBean(beanName, mbd, instanceWrapper);
+
+			/*
+				初始化：【AOP在这里实现】，BeanPostProcessor 接口的方法，也在这里调用。
+					- 处理部分 Aware 接口
+						1. BeanNameAware
+						2. BeanClassLoaderAware
+						3. BeanFactoryAware
+					- 扩展点：
+						- BeanPostProcessor.postProcessBeforeInitialization
+					- 调用：init-method()
+						- SpringBean 初始化方式1：initializingBean#afterPropertiesSet
+						- SpringBean 初始化方式2：initMethod()
+					- 扩展点：
+						- BeanPostProcessor.postProcessAfterInitialization
+
+				【AOP实现原理】
+					1) <aop:aspectj-autoproxy> 解析时
+						- 注入：AnnotationAwareAspectJAutoProxyCreator
+					2) Bean 被调用的地方：
+						- 功能：找是否有符合此 Bean 的 Advisor，根据 Advisor 的 point-cut 找，如有，则创建代理
+						- 触发接口：BeanPostProcessor#postProcessAfterInitialization
+						- 触发实现：AbstractAutoProxyCreator#postProcessAfterInitialization（步骤①的父类）
+						- 循环依赖时：不会执行3)，会执行 AbstractAutoProxyCreator#getEarlyBeanReference()，详情参见 github：Spring 循环依赖问题.md 笔记
+					3) 查找对应的 Advisor
+						- 获取所有的 Advisor：从所有的 BeanDefinition 中找所有的 Advisor.class
+						- 判断是否要代理：此类满足 expression，并且此类中至少一个方法满足 expression
+					4) 创建代理
+						- 实现类：DefaultAopProxyFactory#createAopProxy
+						- 对类生成代理，用 ObjenesisCglibAopProxy
+						- 对接口生成代理，用 JdkDynamicAopProxy
+						- 可以通过配置文件指定对接口使用 ObjenesisCglibAopProxy
+			 */
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -633,6 +704,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Register bean as disposable.
 		try {
+			// 注册销毁方法
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
 		catch (BeanDefinitionValidationException ex) {
@@ -1147,6 +1219,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #instantiateUsingFactoryMethod
 	 * @see #autowireConstructor
 	 * @see #instantiateBean
+	 *
+	 *
+	 * 根据配置，一共有三种不同的方式来创建对象。
+	 * 		- 通过工厂创建
+	 * 			- 反射，拿到工厂对象、方法、参数，反射创建。factoryMethod.invoke(factoryBean, args);
+	 * 		- 通过有参构造器创建（找对应的构造方法和参数）
+	 * 			- 没有配置 lookup-method、replaced-method、@Lookup，直接构造器创建bean【constructor.newInstance(args)】
+	 * 			- 如果有，则用 CGLIB 生成一个代理对象。
+	 * 		- 无参构造器创建
+	 * 			- 同【有参构造器】流程，区别在于用无参构造器创建对象
 	 */
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
 		// Make sure bean class is actually resolved at this point.
@@ -1163,6 +1245,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		if (mbd.getFactoryMethodName() != null) {
+			// 通过工厂创建：反射，拿到工厂对象、方法、参数，反射创建。factoryMethod.invoke(factoryBean, args);
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
 
@@ -1196,10 +1279,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// Preferred constructors for default construction?
 		ctors = mbd.getPreferredConstructors();
 		if (ctors != null) {
+			/*
+				通过有参构造器创建（找对应的构造方法和参数）
+		  			- 没有配置 lookup-method、replaced-method、@Lookup，直接构造器创建bean【constructor.newInstance(args)】
+		  			- 如果有，则用 CGLIB 生成一个代理对象。
+			 */
 			return autowireConstructor(beanName, mbd, ctors, null);
 		}
 
 		// No special handling: simply use no-arg constructor.
+		// 通过无参构造器创建：同【有参构造器】流程，区别在于用无参构造器创建对象
 		return instantiateBean(beanName, mbd);
 	}
 
@@ -1391,13 +1480,25 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
 		int resolvedAutowireMode = mbd.getResolvedAutowireMode();
+
+		// 根据 byName 或 byType 填充属性
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
+
 			// Add property values based on autowire by name if applicable.
+			// 根据 name，从当前容器，父容器递归查找依赖
 			if (resolvedAutowireMode == AUTOWIRE_BY_NAME) {
 				autowireByName(beanName, mbd, bw, newPvs);
 			}
-			// Add property values based on autowire by type if applicable.
+
+			/*
+				Add property values based on autowire by type if applicable.
+				byType：分四中情况获取依赖
+					1. 从 DependencyDescriptor 快速获取对象，（Spring 4.3.1新增）
+					2. AutowireCandidateResolver策略，得看工厂对象采用什么策略
+					3. 处理 Arrays、List、Map 等
+					4. 从容器中获取匹配对象，处理可用的实例
+			 */
 			if (resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 				autowireByType(beanName, mbd, bw, newPvs);
 			}
@@ -1408,18 +1509,33 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		boolean needsDepCheck = (mbd.getDependencyCheck() != AbstractBeanDefinition.DEPENDENCY_CHECK_NONE);
 
 		PropertyDescriptor[] filteredPds = null;
+
+		// 如果有扩展点：InstantiationAwareBeanPostProcessor，则通过 @Autowired 或 @Resource 进行注入
 		if (hasInstAwareBpps) {
 			if (pvs == null) {
 				pvs = mbd.getPropertyValues();
 			}
-			// @Autowired 是在这里处理的，由：AutowiredAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byType进行匹配，spring 提供的注解
-			// @Resource 也是在这里处理的，由：CommonAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byName进行匹配，javax 提供的注解
-			//
-			// 相关文章：
-			//    - MergedBeanDefinitionPostProcessor和@Autowired，@Value的关系：https://blog.csdn.net/luoyang_java/article/details/85709475
-			//    - InstantiationAwareBeanPostProcessor和@Autowired，@Value的依赖注入：https://blog.csdn.net/luoyang_java/article/details/85728824
-			//    - Spring NoSuchBeanDefinitionException：https://www.baeldung.com/spring-nosuchbeandefinitionexception
-			//    - Spring @Autowired注解与自动装配：https://blog.csdn.net/mccand1234/article/details/52472970
+			/*
+				通过 @Autowired 或 @Resource 来进行属性注入。
+					- @Autowired 填充属性，是在这里处理的，由：AutowiredAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byType进行匹配，spring 提供的注解
+					- @Resource 填充属性，也是在这里处理的，由：CommonAnnotationBeanPostProcessor.postProcessProperties 处理，默认按照byName进行匹配，javax 提供的注解
+
+				原理：
+					1. 先用 byType 查找，如果没找到抛出：NoSuchBeanDefinitionException
+					2. @Qualifier 注解在这类验证：QualifierAnnotationAutowireCandidateResolver#checkQualifiers
+					3. 如果找到多个：再根据 byName 过滤，如果过滤不掉，则抛出：NoUniqueBeanDefinitionException
+					4. 最后反射注入即可：field.set(bean, value);
+
+				前置流程参见：
+					- 方法：AbstractAutowireCapableBeanFactory#doCreateBean()
+					- 功能：找出此 Bean 中被 @Autowired 标注的属性，原理：class —> Field、Method —> Annotation —> 过滤出 Autowired 和 Qualifier 标注的Field、Method
+
+				相关文章：
+				   - MergedBeanDefinitionPostProcessor和@Autowired，@Value的关系：https://blog.csdn.net/luoyang_java/article/details/85709475
+				   - InstantiationAwareBeanPostProcessor和@Autowired，@Value的依赖注入：https://blog.csdn.net/luoyang_java/article/details/85728824
+				   - Spring NoSuchBeanDefinitionException：https://www.baeldung.com/spring-nosuchbeandefinitionexception
+				   - Spring @Autowired注解与自动装配：https://blog.csdn.net/mccand1234/article/details/52472970
+			 */
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
 					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
@@ -1445,6 +1561,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		if (pvs != null) {
+			/*
+				通过 BeanWrapper 设置属性值
+						1.引用类型：容器直接获取引用对象
+						2.BeanDefinition：
+						3.Array：对集合数组类型的属性进行解析赋值
+						4.List：同上
+						5.Set：同上
+						6.Map：同上
+						7.Properties：同上
+						8.Value：同上
+			 */
 			applyPropertyValues(beanName, mbd, bw, pvs);
 		}
 	}
@@ -1779,6 +1906,12 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	protected Object initializeBean(final String beanName, final Object bean, @Nullable RootBeanDefinition mbd) {
 		if (System.getSecurityManager() != null) {
 			AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
+				/*
+					处理部分 Aware 接口
+						1. BeanNameAware
+						2. BeanClassLoaderAware
+						3. BeanFactoryAware
+				 */
 				invokeAwareMethods(beanName, bean);
 				return null;
 			}, getAccessControlContext());
@@ -1789,11 +1922,21 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
-			// 处理 @PostConstruct 注解，由：InitDestroyAnnotationBeanPostProcessor 处理
+			/*
+				扩展点：
+					- BeanPostProcessor.postProcessBeforeInitialization
+				注意：
+					- 处理 @PostConstruct 注解，由：InitDestroyAnnotationBeanPostProcessor 处理
+			 */
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 
 		try {
+			/*
+				调用：init-method()
+					- SpringBean 初始化方式1：initializingBean#afterPropertiesSet
+					- SpringBean 初始化方式2：initMethod()
+			 */
 			invokeInitMethods(beanName, wrappedBean, mbd);
 		}
 		catch (Throwable ex) {
@@ -1802,6 +1945,27 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					beanName, "Invocation of init method failed", ex);
 		}
 		if (mbd == null || !mbd.isSynthetic()) {
+			/*
+				扩展点：
+					- BeanPostProcessor.postProcessAfterInitialization
+
+				【AOP实现原理】
+					1) <aop:aspectj-autoproxy> 解析时
+						- 注入：AnnotationAwareAspectJAutoProxyCreator
+					2) Bean 被调用的地方：
+						- 功能：找是否有符合此 Bean 的 Advisor，根据 Advisor 的 point-cut 找，如有，则创建代理
+						- 触发接口：BeanPostProcessor#postProcessAfterInitialization
+						- 触发实现：AbstractAutoProxyCreator#postProcessAfterInitialization（步骤①的父类）
+						- 循环依赖时：不会执行3)，会执行 AbstractAutoProxyCreator#getEarlyBeanReference()，详情参见 github：Spring 循环依赖问题.md 笔记
+					3) 查找对应的 Advisor
+						- 获取所有的 Advisor：从所有的 BeanDefinition 中找所有的 Advisor.class
+						- 判断是否要代理：此类满足 expression，并且此类中至少一个方法满足 expression
+					4) 创建代理
+						- 实现类：DefaultAopProxyFactory#createAopProxy
+						- 对类生成代理，用 ObjenesisCglibAopProxy
+						- 对接口生成代理，用 JdkDynamicAopProxy
+						- 可以通过配置文件指定对接口使用 ObjenesisCglibAopProxy
+			 */
 			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 		}
 

@@ -204,6 +204,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	 */
 	@SuppressWarnings("unchecked")
 	protected void registerDefaultFilters() {
+		// 保留 @Component 注解
 		this.includeFilters.add(new AnnotationTypeFilter(Component.class));
 		ClassLoader cl = ClassPathScanningCandidateComponentProvider.class.getClassLoader();
 		try {
@@ -428,6 +429,8 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 				if (resource.isReadable()) {
 					try {
 						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
+						// 通过 excludeFilters 和 includeFilters 来保留和过滤对应的注解。Scanner 初始化的时候设置了这两个值。
+						// 参见：org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.registerDefaultFilters
 						if (isCandidateComponent(metadataReader)) {
 							ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
 							sbd.setResource(resource);
@@ -488,6 +491,8 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	 * @return whether the class qualifies as a candidate component
 	 */
 	protected boolean isCandidateComponent(MetadataReader metadataReader) throws IOException {
+		// 通过 excludeFilters 和 includeFilters 来保留和过滤对应的注解。Scanner 初始化的时候设置了这两个值。
+		// 参见：org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider.registerDefaultFilters
 		for (TypeFilter tf : this.excludeFilters) {
 			if (tf.match(metadataReader, getMetadataReaderFactory())) {
 				return false;
